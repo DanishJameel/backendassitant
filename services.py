@@ -15,7 +15,20 @@ except ImportError:  # pragma: no cover - fallback for direct script execution
 
 class GPTService:
     def __init__(self):
-        self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        # Initialize OpenAI client with explicit httpx configuration
+        try:
+            import httpx
+            self.client = OpenAI(
+                api_key=os.getenv("OPENAI_API_KEY"),
+                http_client=httpx.Client(
+                    timeout=httpx.Timeout(30.0, connect=10.0),
+                    limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+                )
+            )
+        except Exception as e:
+            # Fallback to basic initialization if httpx configuration fails
+            self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+        
         self.sessions: Dict[str, Dict[str, Any]] = {}
     
     def select_gpt(self, gpt_type: str) -> Dict[str, Any]:
