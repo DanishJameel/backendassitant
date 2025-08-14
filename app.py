@@ -38,7 +38,20 @@ if not openai_api_key:
     raise RuntimeError(
         "OPENAI_API_KEY is not set. Please set it in your Hugging Face Space environment variables."
     )
-client = OpenAI(api_key=openai_api_key)
+
+# Initialize OpenAI client with explicit httpx configuration
+try:
+    import httpx
+    client = OpenAI(
+        api_key=openai_api_key,
+        http_client=httpx.Client(
+            timeout=httpx.Timeout(30.0, connect=10.0),
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        )
+    )
+except Exception as e:
+    # Fallback to basic initialization if httpx configuration fails
+    client = OpenAI(api_key=openai_api_key)
 
 app = FastAPI(
     title="EUREKA GPT Assistant Suite", 
