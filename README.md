@@ -3,7 +3,7 @@ title: EUREKA GPT Assistant Suite
 emoji: 🚀
 colorFrom: blue
 colorTo: purple
-sdk: docker
+sdk: gradio
 pinned: false
 ---
 
