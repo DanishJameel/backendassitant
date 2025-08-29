@@ -32,3 +32,22 @@ class CombinedSummaryResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     sessions: int
+
+
+class OfferToAvatarHandoffRequest(BaseModel):
+    offer_session_id: str
+
+
+class OfferToAvatarHandoffResponse(BaseModel):
+    avatar_session_id: str
+    gpt_type: str
+    greeting: str
+    prefilled_fields: Dict[str, Any]
+
+
+class AvatarToBeforeHandoffRequest(BaseModel):
+    avatar_session_id: str
+
+
+class AvatarToAfterHandoffRequest(BaseModel):
+    avatar_session_id: str

@@ -29,7 +29,7 @@ from typing import Optional
 
 # Import all the field definitions and prompts using absolute imports
 from constants import *
-from models import ChatRequest, GPTSelectionRequest
+from models import ChatRequest, GPTSelectionRequest, OfferToAvatarHandoffRequest, OfferToAvatarHandoffResponse, AvatarToBeforeHandoffRequest, AvatarToAfterHandoffRequest
 from services import GPTService
 
 # Initialize OpenAI client (ensure API key is available)
@@ -95,6 +95,24 @@ def get_combined_summary(session_ids: list = Body(...)):
 def health_check():
     """Health check endpoint"""
     return {"status": "healthy", "sessions": gpt_service.get_session_count()}
+
+
+@app.post("/api/handoff/offer-to-avatar", response_model=OfferToAvatarHandoffResponse)
+def handoff_offer_to_avatar(req: OfferToAvatarHandoffRequest):
+    """Create an Avatar Creator session prefilled from an Offer Clarifier session"""
+    return gpt_service.handoff_offer_to_avatar(req.offer_session_id)
+
+
+@app.post("/api/handoff/avatar-to-before")
+def handoff_avatar_to_before(req: AvatarToBeforeHandoffRequest):
+    """Create a Before State Research session with avatar context"""
+    return gpt_service.handoff_avatar_to_before(req.avatar_session_id)
+
+
+@app.post("/api/handoff/avatar-to-after")
+def handoff_avatar_to_after(req: AvatarToAfterHandoffRequest):
+    """Create an After State Research session with avatar context"""
+    return gpt_service.handoff_avatar_to_after(req.avatar_session_id)
 
 @app.get("/")
 async def serve_frontend():
@@ -162,4 +180,7 @@ async def serve_frontend():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("app:app", host="0.0.0.0", port=7860, reload=True)
+    import os
+    # Get port from environment variable (for Render) or use default
+    port = int(os.environ.get("PORT", 7860))
+    uvicorn.run("app:app", host="0.0.0.0", port=port, reload=True)

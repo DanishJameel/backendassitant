@@ -182,10 +182,69 @@
                 <div class="endpoint">POST /api/reset - Reset a conversation session</div>
                 <div class="endpoint">POST /api/combined-summary - Get combined summary</div>
                 <div class="endpoint">GET /api/health - Health check</div>
+                <div class="endpoint">POST /api/handoff/offer-to-avatar - Handoff Offer → Avatar (prefill)</div>
+                <div class="endpoint">POST /api/handoff/avatar-to-before - Handoff Avatar → Before State</div>
+                <div class="endpoint">POST /api/handoff/avatar-to-after - Handoff Avatar → After State</div>
             </div>
             
             <div class="docs-link">
                 <a href="/docs">📚 View Full API Documentation</a>
+            </div>
+        </div>
+
+        <div class="content">
+            <h2>🧪 Workflow Playground</h2>
+            <p>Use this lightweight UI to test the end-to-end flow: Offer Clarifier → Avatar Creator → Before/After Research.</p>
+            <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:20px;margin-top:20px;">
+                <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;padding:16px;">
+                    <h3>1) Offer Clarifier</h3>
+                    <button id="btnStartOffer">Start Offer Clarifier</button>
+                    <div style="font-size:12px;color:#555;margin-top:8px;">Session: <span id="offerSession">-</span></div>
+                    <pre id="offerGreeting" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;"></pre>
+                    <textarea id="offerMsg" placeholder="Type a message (e.g., answer the question)..." style="width:100%;height:70px;margin-top:8px;"></textarea>
+                    <button id="btnSendOffer">Send</button>
+                    <pre id="offerReply" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:80px;margin-top:8px;"></pre>
+                    <button id="btnHandoffAvatar" style="margin-top:8px;">→ Handoff to Avatar (prefill)</button>
+                </div>
+
+                <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;padding:16px;">
+                    <h3>2) Avatar Creator</h3>
+                    <div style="font-size:12px;color:#555;">Session: <span id="avatarSession">-</span></div>
+                    <pre id="avatarGreeting" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;"></pre>
+                    <pre id="avatarPrefill" style="white-space:pre-wrap;background:#eef9ff;border:1px solid #cfe9ff;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;">(prefilled_fields will appear here)</pre>
+                    <textarea id="avatarMsg" placeholder="Confirm/refine avatar details..." style="width:100%;height:70px;margin-top:8px;"></textarea>
+                    <button id="btnSendAvatar">Send</button>
+                    <pre id="avatarReply" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:80px;margin-top:8px;"></pre>
+                    <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap;">
+                        <button id="btnHandoffBefore">→ Handoff to Before</button>
+                        <button id="btnHandoffAfter">→ Handoff to After</button>
+                    </div>
+                </div>
+
+                <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;padding:16px;">
+                    <h3>3a) Before State</h3>
+                    <div style="font-size:12px;color:#555;">Session: <span id="beforeSession">-</span></div>
+                    <pre id="beforeGreeting" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;"></pre>
+                    <pre id="beforePrefill" style="white-space:pre-wrap;background:#eef9ff;border:1px solid #cfe9ff;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;">(avatar_input will appear here)</pre>
+                    <textarea id="beforeMsg" placeholder="Provide details or say 'summary'..." style="width:100%;height:70px;margin-top:8px;"></textarea>
+                    <button id="btnSendBefore">Send</button>
+                    <pre id="beforeReply" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:80px;margin-top:8px;"></pre>
+                </div>
+
+                <div style="background:#f8f9fa;border:1px solid #e9ecef;border-radius:10px;padding:16px;">
+                    <h3>3b) After State</h3>
+                    <div style="font-size:12px;color:#555;">Session: <span id="afterSession">-</span></div>
+                    <pre id="afterGreeting" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;"></pre>
+                    <pre id="afterPrefill" style="white-space:pre-wrap;background:#eef9ff;border:1px solid #cfe9ff;border-radius:6px;padding:8px;min-height:40px;margin-top:8px;">(avatar_input will appear here)</pre>
+                    <textarea id="afterMsg" placeholder="Provide details or say 'summary'..." style="width:100%;height:70px;margin-top:8px;"></textarea>
+                    <button id="btnSendAfter">Send</button>
+                    <pre id="afterReply" style="white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:80px;margin-top:8px;"></pre>
+                </div>
+            </div>
+
+            <div style="margin-top:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+                <button id="btnCombined">Generate Combined Summary</button>
+                <pre id="combinedReply" style="flex:1;white-space:pre-wrap;background:#fff;border:1px solid #ddd;border-radius:6px;padding:8px;min-height:60px;margin:0;"></pre>
             </div>
         </div>
         
@@ -193,5 +252,126 @@
             <p>Built with ❤️ for the EUREKA Ideation Machine</p>
         </div>
     </div>
+
+    <script>
+    (function(){
+        const state = {
+            offerSessionId: null,
+            avatarSessionId: null,
+            beforeSessionId: null,
+            afterSessionId: null
+        };
+
+        async function api(path, method = 'POST', body = null){
+            const opts = { method, headers: { 'Content-Type': 'application/json' } };
+            if(body) opts.body = JSON.stringify(body);
+            const res = await fetch(path, opts);
+            if(!res.ok){
+                throw new Error(`${res.status} ${res.statusText}`);
+            }
+            return res.json();
+        }
+
+        function setText(id, text){ document.getElementById(id).textContent = text || ''; }
+        function getVal(id){ return document.getElementById(id).value; }
+        function setVal(id, val){ document.getElementById(id).value = val; }
+
+        // Offer Clarifier
+        document.getElementById('btnStartOffer').onclick = async () => {
+            try{
+                const r = await api('/api/select-gpt', 'POST', { gpt_type: 'offer_clarifier' });
+                state.offerSessionId = r.session_id;
+                setText('offerSession', r.session_id);
+                setText('offerGreeting', r.greeting);
+                setText('offerReply', '');
+            }catch(e){ setText('offerReply', `Error: ${e.message}`); }
+        };
+
+        document.getElementById('btnSendOffer').onclick = async () => {
+            if(!state.offerSessionId){ setText('offerReply','Start Offer Clarifier first.'); return; }
+            try{
+                const msg = getVal('offerMsg');
+                const r = await api('/api/chat','POST',{ session_id: state.offerSessionId, gpt_type:'offer_clarifier', message: msg });
+                setText('offerReply', r.reply || '');
+                setVal('offerMsg','');
+            }catch(e){ setText('offerReply', `Error: ${e.message}`); }
+        };
+
+        document.getElementById('btnHandoffAvatar').onclick = async () => {
+            if(!state.offerSessionId){ setText('offerReply','Start Offer Clarifier first.'); return; }
+            try{
+                const r = await api('/api/handoff/offer-to-avatar','POST',{ offer_session_id: state.offerSessionId });
+                state.avatarSessionId = r.avatar_session_id;
+                setText('avatarSession', r.avatar_session_id || '');
+                setText('avatarGreeting', r.greeting || '');
+                setText('avatarPrefill', JSON.stringify(r.prefilled_fields || {}, null, 2));
+            }catch(e){ setText('avatarGreeting', `Error: ${e.message}`); }
+        };
+
+        // Avatar Creator
+        document.getElementById('btnSendAvatar').onclick = async () => {
+            if(!state.avatarSessionId){ setText('avatarReply','Handoff to Avatar first.'); return; }
+            try{
+                const msg = getVal('avatarMsg');
+                const r = await api('/api/chat','POST',{ session_id: state.avatarSessionId, gpt_type:'avatar_creator', message: msg });
+                setText('avatarReply', r.reply || '');
+                setVal('avatarMsg','');
+            }catch(e){ setText('avatarReply', `Error: ${e.message}`); }
+        };
+
+        document.getElementById('btnHandoffBefore').onclick = async () => {
+            if(!state.avatarSessionId){ setText('avatarReply','Need an Avatar session first.'); return; }
+            try{
+                const r = await api('/api/handoff/avatar-to-before','POST',{ avatar_session_id: state.avatarSessionId });
+                state.beforeSessionId = r.before_session_id;
+                setText('beforeSession', r.before_session_id || '');
+                setText('beforeGreeting', r.greeting || '');
+                setText('beforePrefill', JSON.stringify(r.prefilled_fields || {}, null, 2));
+            }catch(e){ setText('beforeGreeting', `Error: ${e.message}`); }
+        };
+
+        document.getElementById('btnHandoffAfter').onclick = async () => {
+            if(!state.avatarSessionId){ setText('avatarReply','Need an Avatar session first.'); return; }
+            try{
+                const r = await api('/api/handoff/avatar-to-after','POST',{ avatar_session_id: state.avatarSessionId });
+                state.afterSessionId = r.after_session_id;
+                setText('afterSession', r.after_session_id || '');
+                setText('afterGreeting', r.greeting || '');
+                setText('afterPrefill', JSON.stringify(r.prefilled_fields || {}, null, 2));
+            }catch(e){ setText('afterGreeting', `Error: ${e.message}`); }
+        };
+
+        // Before / After chats
+        document.getElementById('btnSendBefore').onclick = async () => {
+            if(!state.beforeSessionId){ setText('beforeReply','Create a Before session first.'); return; }
+            try{
+                const msg = getVal('beforeMsg');
+                const r = await api('/api/chat','POST',{ session_id: state.beforeSessionId, gpt_type:'before_state_research', message: msg });
+                setText('beforeReply', r.reply || '');
+                setVal('beforeMsg','');
+            }catch(e){ setText('beforeReply', `Error: ${e.message}`); }
+        };
+
+        document.getElementById('btnSendAfter').onclick = async () => {
+            if(!state.afterSessionId){ setText('afterReply','Create an After session first.'); return; }
+            try{
+                const msg = getVal('afterMsg');
+                const r = await api('/api/chat','POST',{ session_id: state.afterSessionId, gpt_type:'after_state_research', message: msg });
+                setText('afterReply', r.reply || '');
+                setVal('afterMsg','');
+            }catch(e){ setText('afterReply', `Error: ${e.message}`); }
+        };
+
+        // Combined summary
+        document.getElementById('btnCombined').onclick = async () => {
+            try{
+                const ids = [state.offerSessionId, state.avatarSessionId, state.beforeSessionId, state.afterSessionId].filter(Boolean);
+                if(ids.length === 0){ setText('combinedReply','No sessions yet.'); return; }
+                const r = await api('/api/combined-summary','POST', ids);
+                setText('combinedReply', r.combined_report || JSON.stringify(r, null, 2));
+            }catch(e){ setText('combinedReply', `Error: ${e.message}`); }
+        };
+    })();
+    </script>
 </body>
 </html>

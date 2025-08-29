@@ -30,6 +30,109 @@ class GPTService:
             self.client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
         
         self.sessions: Dict[str, Dict[str, Any]] = {}
+
+    def handoff_offer_to_avatar(self, offer_session_id: str) -> Dict[str, Any]:
+        """Create an avatar_creator session prefilled from an offer_clarifier session."""
+        # Validate source session
+        if offer_session_id not in self.sessions:
+            return {
+                "avatar_session_id": "",
+                "gpt_type": "avatar_creator",
+                "greeting": "",
+                "prefilled_fields": {},
+                "error": "Offer session not found"
+            }
+
+        source = self.sessions[offer_session_id]
+        if source.get("gpt_type") != "offer_clarifier":
+            return {
+                "avatar_session_id": "",
+                "gpt_type": "avatar_creator",
+                "greeting": "",
+                "prefilled_fields": {},
+                "error": "Source session is not an offer_clarifier session"
+            }
+
+        # Map offer fields to avatar seed fields
+        offer = source.get("fields", {})
+        prefilled = {
+            "customer_segment": offer.get("target_audience"),
+            "avatar_name": None,
+            "demographics": None,
+            "frustrations_fears": offer.get("problems_solved"),
+            "wants_aspirations": offer.get("core_transformation"),
+            "purchase_drivers": [
+                f"Values: {offer.get('unique_value')}" if offer.get('unique_value') else None,
+                f"Features: {', '.join(offer.get('features', []))}" if offer.get('features') else None
+            ],
+            "objections": None,
+            "decision_making": None,
+            "before_state": None,
+            "after_state": None,
+            "emotional_shift": None
+        }
+        # Clean None items in arrays
+        if isinstance(prefilled.get("purchase_drivers"), list):
+            prefilled["purchase_drivers"] = [p for p in prefilled["purchase_drivers"] if p]
+
+        # Create new avatar_creator session
+        avatar_session = self.select_gpt("avatar_creator")
+        avatar_session_id = avatar_session["session_id"]
+        self.sessions[avatar_session_id]["fields"].update({k: v for k, v in prefilled.items() if v})
+
+        greeting = self._get_greeting("avatar_creator")
+        return {
+            "avatar_session_id": avatar_session_id,
+            "gpt_type": "avatar_creator",
+            "greeting": greeting,
+            "prefilled_fields": self.sessions[avatar_session_id]["fields"]
+        }
+
+    def handoff_avatar_to_before(self, avatar_session_id: str) -> Dict[str, Any]:
+        """Create a before_state_research session seeded from an avatar_creator session."""
+        if avatar_session_id not in self.sessions:
+            return {"error": "Avatar session not found"}
+        source = self.sessions[avatar_session_id]
+        if source.get("gpt_type") != "avatar_creator":
+            return {"error": "Source session is not an avatar_creator session"}
+
+        avatar_fields = source.get("fields", {})
+        # Seed the before-state research with avatar summary
+        seeded = {
+            "avatar_input": json.dumps(avatar_fields)
+        }
+        # Create new session
+        before = self.select_gpt("before_state_research")
+        before_session_id = before["session_id"]
+        self.sessions[before_session_id]["fields"].update(seeded)
+        return {
+            "before_session_id": before_session_id,
+            "gpt_type": "before_state_research",
+            "greeting": self._get_greeting("before_state_research"),
+            "prefilled_fields": self.sessions[before_session_id]["fields"]
+        }
+
+    def handoff_avatar_to_after(self, avatar_session_id: str) -> Dict[str, Any]:
+        """Create an after_state_research session seeded from an avatar_creator session."""
+        if avatar_session_id not in self.sessions:
+            return {"error": "Avatar session not found"}
+        source = self.sessions[avatar_session_id]
+        if source.get("gpt_type") != "avatar_creator":
+            return {"error": "Source session is not an avatar_creator session"}
+
+        avatar_fields = source.get("fields", {})
+        seeded = {
+            "avatar_input": json.dumps(avatar_fields)
+        }
+        after = self.select_gpt("after_state_research")
+        after_session_id = after["session_id"]
+        self.sessions[after_session_id]["fields"].update(seeded)
+        return {
+            "after_session_id": after_session_id,
+            "gpt_type": "after_state_research",
+            "greeting": self._get_greeting("after_state_research"),
+            "prefilled_fields": self.sessions[after_session_id]["fields"]
+        }
     
     def select_gpt(self, gpt_type: str) -> Dict[str, Any]:
         """Select which GPT to use for the session"""
@@ -403,27 +506,27 @@ Conversation:
             return f"Final report for {gpt_type} - Data collected: {json.dumps(fields_data, indent=2)}"
     
     def _generate_offer_clarifier_report(self, fields_data: Dict[str, Any]) -> str:
-        """Generate the specific Offer Clarifier report format"""
+        """Generate the enhanced Offer Clarifier report format with detailed explanations"""
         
-        # Format features
+        # Format features with descriptions
         features_text = ""
         if fields_data.get("features"):
             if isinstance(fields_data["features"], list):
-                for feature in fields_data["features"]:
-                    features_text += f"* {feature}\n"
+                for i, feature in enumerate(fields_data["features"], 1):
+                    features_text += f"* Feature {i}: {feature}\n"
             else:
-                features_text = f"* {fields_data['features']}\n"
+                features_text = f"* Feature 1: {fields_data['features']}\n"
         
-        # Format problems solved
+        # Format problems solved with descriptions
         problems_text = ""
         if fields_data.get("problems_solved"):
             if isinstance(fields_data["problems_solved"], list):
-                for problem in fields_data["problems_solved"]:
-                    problems_text += f"* {problem}\n"
+                for i, problem in enumerate(fields_data["problems_solved"], 1):
+                    problems_text += f"* Problem {i}: {problem}\n"
             else:
-                problems_text = f"* {fields_data['problems_solved']}\n"
+                problems_text = f"* Problem 1: {fields_data['problems_solved']}\n"
         
-        # Create JSON for downstream GPTs
+        # Create enhanced JSON for downstream GPTs
         json_output = {
             "title": fields_data.get("product_name", ""),
             "coreOutcome": fields_data.get("core_transformation", ""),
@@ -433,42 +536,121 @@ Conversation:
             "pricePoint": fields_data.get("pricing", ""),
             "USP": fields_data.get("unique_value", ""),
             "targetAudience": fields_data.get("target_audience", ""),
-            "problemsSolved": fields_data.get("problems_solved", []) if isinstance(fields_data.get("problems_solved"), list) else [fields_data.get("problems_solved", "")]
+            "problemsSolved": fields_data.get("problems_solved", []) if isinstance(fields_data.get("problems_solved"), list) else [fields_data.get("problems_solved", "")],
+            "marketPositioning": f"{fields_data.get('product_name', 'Your offer')} is positioned as a {fields_data.get('format', 'solution')} that delivers {fields_data.get('core_transformation', 'value')} to {fields_data.get('target_audience', 'customers')} who struggle with {', '.join(fields_data.get('problems_solved', ['challenges']) if isinstance(fields_data.get('problems_solved'), list) else [fields_data.get('problems_solved', 'challenges')])}",
+            "competitiveAdvantage": fields_data.get("unique_value", "Your unique approach and value delivery"),
+            "marketingOpportunities": {
+                "primaryMessage": f"{fields_data.get('core_transformation', 'Value')} for {fields_data.get('target_audience', 'customers')}",
+                "secondaryMessages": fields_data.get("features", []) if isinstance(fields_data.get("features"), list) else [fields_data.get("features", "")]
+            },
+            "valueJustification": f"Your pricing of {fields_data.get('pricing', 'your price point')} is justified by {fields_data.get('core_transformation', 'the value you provide')} and {', '.join(fields_data.get('features', ['your features']) if isinstance(fields_data.get('features'), list) else [fields_data.get('features', 'your features')])}"
         }
         
-        report = f"""#### ✅ OFFER CLARIFIER – OUTCOME SUMMARY REPORT
+        # Generate market positioning summary
+        market_positioning = f"{fields_data.get('product_name', 'Your offer')} is positioned as a {fields_data.get('format', 'solution')} that delivers {fields_data.get('core_transformation', 'value')} to {fields_data.get('target_audience', 'customers')} who struggle with {', '.join(fields_data.get('problems_solved', ['challenges']) if isinstance(fields_data.get('problems_solved'), list) else [fields_data.get('problems_solved', 'challenges')])}"
+        
+        # Generate competitive advantage summary
+        competitive_advantage = fields_data.get("unique_value", "Your unique approach and value delivery")
+        
+        # Generate marketing opportunities
+        primary_message = f"{fields_data.get('core_transformation', 'Value')} for {fields_data.get('target_audience', 'customers')}"
+        
+        # Generate value justification
+        value_justification = f"Your pricing of {fields_data.get('pricing', 'your price point')} is justified by {fields_data.get('core_transformation', 'the value you provide')} and {', '.join(fields_data.get('features', ['your features']) if isinstance(fields_data.get('features'), list) else [fields_data.get('features', 'your features')])}"
+        
+        report = f"""#### ✅ OFFER CLARIFIER – ENHANCED OUTCOME SUMMARY REPORT
 
-**Here's a full breakdown of your offer based on your answers:**
+**🎯 COMPLETE OFFER BREAKDOWN WITH DETAILED EXPLANATIONS**
 
-**💼 Offer Name**
-{fields_data.get('product_name', '[Not specified]')}
+**💼 OFFER NAME & IDENTITY**
+**What This Is**: The official name and brand identity of your product, service, or offer
+**Your Answer**: {fields_data.get('product_name', '[Not specified]')}
+**Why This Matters**: This becomes the foundation of your brand recognition and marketing efforts. It's how customers will refer to and remember your solution.
 
-**🌟 Core Transformation / Outcome**
-{fields_data.get('core_transformation', '[Not specified]')}
+**🌟 CORE TRANSFORMATION & OUTCOME**
+**What This Is**: The primary benefit, result, or change your customers experience after using your offer
+**Your Answer**: {fields_data.get('core_transformation', '[Not specified]')}
+**Why This Matters**: This is your main value proposition - the "what's in it for me" that drives customer decisions. It should be specific, measurable, and emotionally compelling.
 
-**📦 Key Features (list as many features as you identify)**
-{features_text.rstrip() if features_text else '* [Not specified]'}
+**📦 KEY FEATURES & DELIVERABLES**
+**What This Is**: The specific components, tools, resources, or elements included in your offer
+**Your Answer**:
+{features_text.rstrip() if features_text else '* Feature 1: [Not specified]'}
+**Why This Matters**: Features show customers exactly what they're getting for their investment. Each feature should directly support the core transformation.
 
-**🚚 Delivery Method**
-{fields_data.get('delivery_method', '[Not specified]')}
+**🚚 DELIVERY METHOD & EXPERIENCE**
+**What This Is**: How, when, and where your customers receive and experience your offer
+**Your Answer**: {fields_data.get('delivery_method', '[Not specified]')}
+**Why This Matters**: Delivery method sets customer expectations about timing, accessibility, and the overall experience. It affects perceived value and customer satisfaction.
 
-**🧩 Format**
-{fields_data.get('format', '[Not specified]')}
+**🧩 FORMAT & STRUCTURE**
+**What This Is**: The organizational structure and type of your offer
+**Your Answer**: {fields_data.get('format', '[Not specified]')}
+**Why This Matters**: Format helps customers understand the commitment level, time investment, and how the offer fits into their lifestyle or business operations.
 
-**💰 Price & Payment**
-{fields_data.get('pricing', '[Not specified]')}
+**💰 PRICING & PAYMENT STRUCTURE**
+**What This Is**: The complete cost breakdown, payment options, and value tiers
+**Your Answer**: {fields_data.get('pricing', '[Not specified]')}
+**Why This Matters**: Pricing communicates value, positions you in the market, and determines accessibility. Clear pricing builds trust and helps customers make informed decisions.
 
-**🧠 Unique Selling Proposition (USP)**
-{fields_data.get('unique_value', '[Not specified]')}
+**🧠 UNIQUE SELLING PROPOSITION (USP)**
+**What This Is**: What makes your offer different, better, or more valuable than alternatives
+**Your Answer**: {fields_data.get('unique_value', '[Not specified]')}
+**Why This Matters**: Your USP creates competitive advantage, justifies pricing, and gives customers a compelling reason to choose you over competitors or doing nothing.
 
-**🎯 Target Audience**
-{fields_data.get('target_audience', '[Not specified]')}
+**🎯 TARGET AUDIENCE & MARKET**
+**What This Is**: The specific group of people who need and will benefit most from your offer
+**Your Answer**: {fields_data.get('target_audience', '[Not specified]')}
+**Why This Matters**: Clear target audience definition ensures your marketing reaches the right people, improves conversion rates, and helps you create more relevant messaging.
 
-**🔥 Problems Solved (list as many problems it solves as you can come up with)**
-{problems_text.rstrip() if problems_text else '* [Not specified]'}
+**🔥 PROBLEMS SOLVED & PAIN POINTS**
+**What This Is**: The specific challenges, frustrations, or obstacles your offer eliminates or reduces
+**Your Answer**:
+{problems_text.rstrip() if problems_text else '* Problem 1: [Not specified]'}
+**Why This Matters**: Understanding problems helps you communicate value, create urgency, and show customers you truly understand their situation.
 
-**➡️ Does this look good?**
-"Yes" to proceed — or tell me what to change.
+---
+
+#### 📊 STRATEGIC ANALYSIS & INSIGHTS
+
+**🎯 MARKET POSITIONING SUMMARY**
+**Your Offer**: {market_positioning}
+
+**💡 COMPETITIVE ADVANTAGE**
+**What Sets You Apart**: {competitive_advantage} - This creates a unique market position that competitors cannot easily replicate.
+
+**🚀 MARKETING OPPORTUNITIES**
+**Primary Message**: {primary_message}
+**Secondary Messages**: 
+- {', '.join(fields_data.get('features', ['Feature benefits']) if isinstance(fields_data.get('features'), list) else [fields_data.get('features', 'Feature benefits')])}
+
+**💰 VALUE JUSTIFICATION**
+**Price Point Analysis**: {value_justification}
+
+---
+
+#### 🔄 NEXT STEPS & RECOMMENDATIONS
+
+**✅ READY FOR NEXT PHASE**
+Your offer is now clearly defined and ready for the next GPT assistants to:
+1. **Build Customer Avatars** - Understand your target market deeply
+2. **Create Marketing Campaigns** - Develop compelling messaging and strategies
+3. **Design Sales Funnels** - Map the customer journey from awareness to purchase
+
+**📝 VALIDATION CHECKLIST**
+- [ ] Offer name is clear and memorable
+- [ ] Core transformation is specific and compelling
+- [ ] Features directly support the transformation
+- [ ] Pricing aligns with value and market position
+- [ ] USP differentiates from competitors
+- [ ] Target audience is specific and reachable
+- [ ] Problems solved are real and urgent
+
+**➡️ CONFIRMATION REQUIRED**
+**Does this comprehensive breakdown accurately represent your offer?**
+- Say **"Yes"** to proceed to the next GPT assistant
+- Say **"No"** and tell me what needs to be changed or clarified
+- Say **"Revise"** and specify which sections need adjustment
 
 ---
 
