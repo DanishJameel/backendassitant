@@ -8,9 +8,8 @@ python-dotenv==1.0.0
 openai==1.3.7
 httpx==0.25.2
 
-# Data validation and models (pin to wheel-available versions)
+# Data validation and models (let pip resolve matching core wheel)
 pydantic==2.7.1
-pydantic-core==2.18.2
 
 # Additional dependencies for enhanced functionality
 jinja2==3.1.2
